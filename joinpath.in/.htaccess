@@ -1,0 +1,7 @@
+Options -Indexes
+DirectoryIndex index.php
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule ^u/ - [L]
+RewriteRule ^ index.php [L,QSA]
+</IfModule>

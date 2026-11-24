@@ -1,0 +1,14 @@
+Options -Indexes
+DirectoryIndex index.php
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+RewriteRule ^ index.php [L,QSA]
+</IfModule>
+<FilesMatch "^\.">
+Require all denied
+</FilesMatch>
+<IfModule mod_headers.c>
+Header set X-Content-Type-Options "nosniff"
+</IfModule>

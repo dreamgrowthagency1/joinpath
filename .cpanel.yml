@@ -1,0 +1,8 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/dreamgro
+    - /bin/cp -Rf launchpad/src $DEPLOYPATH/launchpad/
+    - /bin/cp -f launchpad/cron.php launchpad/schema.sql $DEPLOYPATH/launchpad/
+    - /bin/cp -Rf dreamgrowthtrack.com/. $DEPLOYPATH/dreamgrowthtrack.com/
+    - /bin/cp -Rf joinpath.in/. $DEPLOYPATH/joinpath.in/
