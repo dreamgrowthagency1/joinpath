@@ -139,7 +139,7 @@ function page_admin(): void
     if (!empty($_SESSION['new_cred'])) {
         $c = $_SESSION['new_cred'];
         unset($_SESSION['new_cred']);
-        echo '<div class="flash warn"><strong>Share these with the client now. The password is shown only once.</strong>'
+        echo '<div class="flash warn"><strong>' . (!empty($c['mailed']) ? 'Login details were emailed to the client. Copy kept here as a backup, shown only once.' : 'Email could not be sent. Share these with the client yourself. The password is shown only once.') . '</strong>'
             . '<div class="secret mono" style="margin-top:12px">Login: ' . e((string)cfg('app_url')) . '/login<br>Email: ' . e($c['email']) . '<br>Password: ' . e($c['password']) . '</div></div>';
     }
     echo '<div class="grid g5">'
@@ -428,7 +428,9 @@ function do_admin_request(): void
         $base = (!empty($existing['paid_until']) && $existing['paid_until'] >= local_today()) ? $existing['paid_until'] : local_today();
         $new = gmdate('Y-m-d', strtotime($base . ' 12:00:00 UTC') + 30 * 86400);
         db_update('accounts', $aid, ['paid_until' => $new, 'status' => 'active']);
-        flash('ok', 'Renewed until ' . ymd_label($new) . '.');
+        $sent = lp_mail($r['email'], 'JoinPath renewed until ' . ymd_label($new),
+            "Hi " . ($r['name'] !== '' ? $r['name'] : 'there') . ",\n\nThank you. Your JoinPath plan is renewed until " . ymd_label($new) . ".\n\nLog in: " . rtrim((string)cfg('app_url', ''), '/') . "/app\nUse your existing password.\n\nNeed help? Reply to this email or write to " . support_email() . ".\n\nJoinPath by Dream Growth Agency", support_email());
+        flash('ok', 'Renewed until ' . ymd_label($new) . '. ' . ($sent ? 'Confirmation emailed to the client.' : 'Email could not be sent, please tell the client yourself.'));
     } elseif (db_one('SELECT id FROM users WHERE email=?', [$r['email']])) {
         flash('bad', 'That email belongs to an admin login. Dismiss this request.');
         redirect('/app/admin/requests');
@@ -440,6 +442,9 @@ function do_admin_request(): void
             'password_hash' => password_hash($pw, PASSWORD_DEFAULT), 'is_admin' => 0, 'lang' => 'en', 'created_at' => now_utc()]);
         $_SESSION['new_cred'] = ['email' => $r['email'], 'password' => $pw];
         db_update('signup_requests', (int)$r['id'], ['status' => 'created', 'account_id' => $aid, 'handled_at' => now_utc()]);
+        $sent = lp_mail($r['email'], 'Your JoinPath login',
+            "Hi " . ($r['name'] !== '' ? $r['name'] : 'there') . ",\n\nThank you for your payment. Your JoinPath account is ready (active until " . ymd_label($paid) . ").\n\nLog in: " . rtrim((string)cfg('app_url', ''), '/') . "/app\nEmail: " . $r['email'] . "\nTemporary password: " . $pw . "\n\nPlease change your password after you log in (Account page).\n\nNeed help? Reply to this email or write to " . support_email() . ".\n\nJoinPath by Dream Growth Agency", support_email());
+        $_SESSION['new_cred']['mailed'] = $sent ? 1 : 0;
         redirect('/app/admin');
     }
     db_update('signup_requests', (int)$r['id'], ['status' => 'created', 'account_id' => $aid, 'handled_at' => now_utc()]);
