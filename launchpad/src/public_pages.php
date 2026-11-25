@@ -4,8 +4,8 @@ declare(strict_types=1);
 function public_shell(string $title, string $inner, bool $narrow = true): void
 {
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . e($title) . ' · JoinPath</title><meta name="robots" content="noindex">'
-        . '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">'
-        . '<link rel="stylesheet" href="/assets/app.css?v=2"></head><body><div style="max-width:' . ($narrow ? '720' : '960') . 'px;margin:0 auto;padding:32px 20px 56px">'
+        . '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap">'
+        . '<link rel="stylesheet" href="/assets/app.css?v=3"></head><body><div style="max-width:' . ($narrow ? '720' : '960') . 'px;margin:0 auto;padding:32px 20px 56px">'
         . '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:36px;gap:12px;flex-wrap:wrap"><a class="h" href="/" style="font-size:22px">JoinPath</a>'
         . '<nav style="display:flex;gap:18px;font-size:14px" class="muted"><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/refund">Refunds</a><a href="/report">Report abuse</a></nav></div>'
         . $inner . '</div></body></html>';

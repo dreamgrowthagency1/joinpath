@@ -117,9 +117,10 @@ function status_chip(string $s): string
     return chip($k, $t);
 }
 
-function kpi_card(string $label, string $value, string $sub = '', string $icon = 'eye'): string
+function kpi_card(string $label, string $value, string $sub = '', string $icon = 'eye', string $accent = ''): string
 {
-    return '<div class="card kpi"><div class="l">' . icon($icon, 16) . e($label) . '</div><div class="v num">' . e($value) . '</div>'
+    $k = ['visit' => 'var(--c-visit)', 'click' => 'var(--c-click)', 'join' => 'var(--c-join)', 'sent' => 'var(--c-sent)', 'bad' => 'var(--c-bad)'][$accent] ?? '';
+    return '<div class="card kpi"' . ($k !== '' ? ' style="--k:' . $k . '"' : '') . '><div class="l"><span>' . e($label) . '</span><span class="ico">' . icon($icon, 16) . '</span></div><div class="v num">' . e($value) . '</div>'
         . ($sub !== '' ? '<div class="s">' . e($sub) . '</div>' : '') . '</div>';
 }
 
@@ -140,14 +141,17 @@ function layout_start(string $title, string $active = '', string $topRight = '')
     $nav[] = ['account', 'Account', 'user', '/app/account'];
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
         . '<title>' . e($title) . ' · JoinPath</title><meta name="robots" content="noindex">'
-        . '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@500&display=swap">'
-        . '<link rel="stylesheet" href="/assets/app.css?v=2"></head><body><div class="shell"><aside class="side">'
-        . '<div class="logo"><span class="logo-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18c6 0 4-12 16-12M15 6h5v5"/></svg></span><span class="h" style="font-size:22px">JoinPath</span></div>';
+        . '<script>try{document.documentElement.setAttribute(\'data-theme\',localStorage.getItem(\'jp_theme\')||\'dark\')}catch(e){document.documentElement.setAttribute(\'data-theme\',\'dark\')}</script>'
+        . '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap">'
+        . '<link rel="stylesheet" href="/assets/app.css?v=3"></head><body><div class="shell"><aside class="side">'
+        . '<div class="logo"><span class="logo-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18c6 0 4-12 16-12M15 6h5v5"/></svg></span><span class="h" style="font-size:21px">JoinPath</span></div>';
     foreach ($nav as [$key, $label, $ic, $href]) {
         echo '<a class="nav' . ($key === $active ? ' on' : '') . '" href="' . $href . '">' . icon($ic) . e($label) . '</a>';
     }
-    echo '<div class="who"><div>' . e($u['account_name']) . '</div><div>' . e($u['email']) . '</div>'
-        . '<form method="post" action="/logout">' . csrf_field() . '<button class="btn ghost sm" type="submit">Log out</button></form></div></aside>'
+    echo '<div class="who"><b>' . e($u['account_name']) . '</b><span>' . e($u['email']) . '</span><div class="acts">'
+        . '<button class="btn ghost sm" type="button" id="jpt" aria-label="Switch between dark and light theme"></button>'
+        . '<form method="post" action="/logout">' . csrf_field() . '<button class="btn ghost sm" type="submit">Log out</button></form></div></div></aside>'
+        . '<script>(function(){var b=document.getElementById("jpt"),h=document.documentElement;function s(){b.textContent=h.getAttribute("data-theme")==="dark"?"Light":"Dark"}s();b.onclick=function(){var t=h.getAttribute("data-theme")==="dark"?"light":"dark";h.setAttribute("data-theme",t);try{localStorage.setItem("jp_theme",t)}catch(e){}s()}})()</script>'
         . '<main class="main"><div class="top"><h1>' . e($title) . '</h1><div>' . $topRight . '</div></div>'
         . (($u['account_status'] ?? '') === 'suspended' ? '<div class="flash bad" role="alert">Your account is suspended and your pages are offline. Write to ' . e(support_email()) . ' to sort this out.</div>' : '')
         . flash_html();
@@ -177,13 +181,13 @@ function svg_line_chart(array $labels, array $series, string $aria, int $w = 640
     for ($k = 0; $k <= 4; $k++) {
         $v = $step * $k;
         $yy = $y($v);
-        $g .= '<line x1="' . $pl . '" y1="' . round($yy, 1) . '" x2="' . ($w - $pr) . '" y2="' . round($yy, 1) . '" stroke="#E4E0D6"/>';
-        $g .= '<text x="' . ($pl - 8) . '" y="' . round($yy + 4, 1) . '" text-anchor="end" font-size="12" fill="#555B6A" font-family="Inter,sans-serif">' . $v . '</text>';
+        $g .= '<line x1="' . $pl . '" y1="' . round($yy, 1) . '" x2="' . ($w - $pr) . '" y2="' . round($yy, 1) . '" class="gl"/>';
+        $g .= '<text x="' . ($pl - 8) . '" y="' . round($yy + 4, 1) . '" text-anchor="end" class="gt">' . $v . '</text>';
     }
     $every = $n > 10 ? (int)ceil($n / 8) : 1;
     foreach ($labels as $i => $l) {
         if ($i % $every === 0 || $i === $n - 1) {
-            $g .= '<text x="' . round($x($i), 1) . '" y="' . ($h - 10) . '" text-anchor="middle" font-size="12" fill="#555B6A" font-family="Inter,sans-serif">' . e($l) . '</text>';
+            $g .= '<text x="' . round($x($i), 1) . '" y="' . ($h - 10) . '" text-anchor="middle" class="gt">' . e($l) . '</text>';
         }
     }
     $body = '';
@@ -193,10 +197,10 @@ function svg_line_chart(array $labels, array $series, string $aria, int $w = 640
             $pts[] = round($x($i), 1) . ',' . round($y($v), 1);
         }
         $da = !empty($s['dashed']) ? ' stroke-dasharray="6 5"' : '';
-        $body .= '<polyline points="' . implode(' ', $pts) . '" fill="none" stroke="' . $s['color'] . '" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"' . $da . '/>';
+        $body .= '<polyline points="' . implode(' ', $pts) . '" fill="none" style="stroke:' . $s['color'] . '" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"' . $da . '/>';
         if ($n <= 14) {
             foreach ($s['values'] as $i => $v) {
-                $body .= '<circle cx="' . round($x($i), 1) . '" cy="' . round($y($v), 1) . '" r="3.5" fill="#fff" stroke="' . $s['color'] . '" stroke-width="2"/>';
+                $body .= '<circle cx="' . round($x($i), 1) . '" cy="' . round($y($v), 1) . '" r="3.5" class="gd" style="stroke:' . $s['color'] . '" stroke-width="2"/>';
             }
         }
     }
@@ -207,7 +211,7 @@ function legend_html(array $items): string
 {
     $o = '';
     foreach ($items as [$name, $color, $dashed]) {
-        $o .= '<span><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="' . $color . '" stroke-width="3"' . ($dashed ? ' stroke-dasharray="5 4"' : '') . '/></svg>' . e($name) . '</span>';
+        $o .= '<span><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" style="stroke:' . $color . '" stroke-width="3"' . ($dashed ? ' stroke-dasharray="5 4"' : '') . '/></svg>' . e($name) . '</span>';
     }
     return '<div class="legend">' . $o . '</div>';
 }

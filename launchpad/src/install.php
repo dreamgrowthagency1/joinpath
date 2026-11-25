@@ -6,8 +6,8 @@ require_once LP_SRC . '/ui.php';
 function install_page(string $inner, string $msg = ''): void
 {
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Set up · JoinPath</title><meta name="robots" content="noindex">'
-        . '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">'
-        . '<link rel="stylesheet" href="/assets/app.css?v=2"></head><body><div class="auth"><div class="card" style="max-width:560px">'
+        . '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap">'
+        . '<link rel="stylesheet" href="/assets/app.css?v=3"></head><body><div class="auth"><div class="card" style="max-width:560px">'
         . '<div class="h" style="font-size:22px;margin-bottom:20px">JoinPath setup</div>'
         . ($msg !== '' ? '<div class="flash bad" role="alert" style="margin-bottom:20px">' . e($msg) . '</div>' : '') . $inner . '</div></div></body></html>';
 }

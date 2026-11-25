@@ -57,7 +57,7 @@ function admin_tabs(string $active): string
     $tabs = ['overview' => ['Overview', '/app/admin'], 'requests' => ['Requests' . ($pend ? ' (' . $pend . ')' : ''), '/app/admin/requests'], 'pages' => ['All pages', '/app/admin/pages'], 'reports' => ['Reports' . ($open ? ' (' . $open . ')' : ''), '/app/admin/reports']];
     $h = '<div class="seg" style="margin-bottom:0;align-self:flex-start">';
     foreach ($tabs as $k => [$l, $href]) {
-        $h .= '<a class="segopt" href="' . $href . '"><span style="' . ($k === $active ? 'background:#fff;color:#14171F;box-shadow:0 1px 3px rgba(20,23,31,.15)' : '') . '">' . e($l) . '</span></a>';
+        $h .= '<a class="segopt' . ($k === $active ? ' on' : '') . '" href="' . $href . '"><span>' . e($l) . '</span></a>';
     }
     return $h . '</div>';
 }
@@ -139,24 +139,24 @@ function page_admin(): void
     if (!empty($_SESSION['new_cred'])) {
         $c = $_SESSION['new_cred'];
         unset($_SESSION['new_cred']);
-        echo '<div class="card" style="background:#FDF4E1;border-color:#EBD6A3"><strong>Share these with the client now. The password is shown only once.</strong>'
+        echo '<div class="flash warn"><strong>Share these with the client now. The password is shown only once.</strong>'
             . '<div class="secret mono" style="margin-top:12px">Login: ' . e((string)cfg('app_url')) . '/login<br>Email: ' . e($c['email']) . '<br>Password: ' . e($c['password']) . '</div></div>';
     }
     echo '<div class="grid g5">'
-        . kpi_card('Clients', (string)count($accts), $paid . ' paid · ' . $unpaid . ' not paid', 'building')
-        . kpi_card('Paid', (string)$paid, $expiring . ' expiring in 5 days · ' . $expired . ' expired', 'check')
-        . kpi_card('Live pages', (string)$pagesLive, $pagesAll . ' pages in total', 'pages')
-        . kpi_card('Visits today', number_format($visToday), number_format($vis7) . ' in 7 days', 'eye')
-        . kpi_card('Joins today', number_format($joinToday), number_format($join7) . ' in 7 days', 'users')
+        . kpi_card('Clients', (string)count($accts), $paid . ' paid · ' . $unpaid . ' not paid', 'building', 'visit')
+        . kpi_card('Paid', (string)$paid, $expiring . ' expiring in 5 days · ' . $expired . ' expired', 'check', 'join')
+        . kpi_card('Live pages', (string)$pagesLive, $pagesAll . ' pages in total', 'pages', 'visit')
+        . kpi_card('Visits today', number_format($visToday), number_format($vis7) . ' in 7 days', 'eye', 'visit')
+        . kpi_card('Joins today', number_format($joinToday), number_format($join7) . ' in 7 days', 'users', 'join')
         . '</div><div class="grid g5">'
-        . kpi_card('Sent to Meta (7 days)', $join7 ? round($sent7 / $join7 * 100, 1) . '%' : '–', ($join7 - $sent7) . ' not sent', 'send')
-        . kpi_card('Pages failing checks', (string)$failing, 'Open Setup health per client', 'alert')
-        . kpi_card('Open reports', (string)$openReports, 'Review them in the Reports tab', 'alert')
-        . kpi_card('Suspended', (string)$susp, 'Accounts', 'x')
+        . kpi_card('Sent to Meta (7 days)', $join7 ? round($sent7 / $join7 * 100, 1) . '%' : '–', ($join7 - $sent7) . ' not sent', 'send', 'sent')
+        . kpi_card('Pages failing checks', (string)$failing, 'Open Setup health per client', 'alert', 'click')
+        . kpi_card('Open reports', (string)$openReports, 'Review them in the Reports tab', 'alert', 'bad')
+        . kpi_card('Suspended', (string)$susp, 'Accounts', 'x', 'bad')
         . '</div>';
     echo '<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px"><h2 style="margin:0">Traffic across all clients</h2>'
-        . legend_html([['Visits', '#8A9E98', false], ['Telegram joins', '#0B6B5C', false]]) . '</div>'
-        . svg_line_chart($labels, [['values' => $sv, 'color' => '#8A9E98'], ['values' => $sj, 'color' => '#0B6B5C']], 'Visits and joins per day for the last 14 days', 900, 240) . '</div>';
+        . legend_html([['Visits', 'var(--c-visit)', false], ['Telegram joins', 'var(--c-join)', false]]) . '</div>'
+        . svg_line_chart($labels, [['values' => $sv, 'color' => 'var(--c-visit)'], ['values' => $sj, 'color' => 'var(--c-join)']], 'Visits and joins per day for the last 14 days', 900, 240) . '</div>';
 
     echo '<div class="card" style="padding-bottom:12px"><h2>Clients</h2><div class="scroll"><table style="min-width:980px"><thead><tr><th>Client</th><th>Plan</th><th class="r">Pages</th><th class="r">Visits 7d</th><th class="r">Joins 7d</th><th class="r">Sent</th><th>Checks</th><th>Last activity</th><th>Manage</th></tr></thead><tbody>';
     if (!$accts) {

@@ -130,9 +130,10 @@ function page_home(): void
 function auth_page(string $title, string $inner): void
 {
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . e($title) . ' · JoinPath</title><meta name="robots" content="noindex">'
-        . '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">'
-        . '<link rel="stylesheet" href="/assets/app.css?v=2"></head><body><div class="auth"><div class="card">'
-        . '<div class="h" style="font-size:22px;margin-bottom:24px">JoinPath</div>' . flash_html() . $inner . '</div>' . public_footer_links() . '</div></body></html>';
+        . '<script>try{document.documentElement.setAttribute(\'data-theme\',localStorage.getItem(\'jp_theme\')||\'dark\')}catch(e){document.documentElement.setAttribute(\'data-theme\',\'dark\')}</script>'
+        . '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap">'
+        . '<link rel="stylesheet" href="/assets/app.css?v=3"></head><body><div class="auth"><div class="card">'
+        . '<div style="display:flex;align-items:center;gap:10px;margin-bottom:24px"><span class="logo-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18c6 0 4-12 16-12M15 6h5v5"/></svg></span><span class="h" style="font-size:22px">JoinPath</span></div>' . flash_html() . $inner . '</div>' . public_footer_links() . '</div></body></html>';
 }
 
 function page_login(): void
@@ -255,19 +256,22 @@ function page_overview(): void
     }
     $unhealthy = (int)db_val('SELECT COUNT(*) FROM health_checks WHERE status=\'bad\' AND page_id IN (' . in_clause(array_map(fn($p) => (int)$p['id'], $pages)) . ')', array_map(fn($p) => (int)$p['id'], $pages));
     if ($unhealthy > 0) {
-        echo '<div class="card" style="background:#FDF4E1;border-color:#EBD6A3"><strong>' . $unhealthy . ' setup check' . ($unhealthy > 1 ? 's' : '') . ' failing.</strong> <a href="/app/health" style="text-decoration:underline">Open the health check</a></div>';
+        echo '<div class="flash warn"><strong>' . $unhealthy . ' setup check' . ($unhealthy > 1 ? 's' : '') . ' failing.</strong> <a href="/app/health" style="text-decoration:underline">Open the health check</a></div>';
     }
+    $rate = $visits ? round($joins / $visits * 100, 1) : 0;
+    echo '<div class="card hero"><div class="hl"><div class="hk">Telegram joins</div><div class="hv num">' . number_format($joins) . '</div>'
+        . '<div class="hs">' . ($visits ? $rate . '% of visits' : 'Counted from your bot') . '</div>'
+        . '<dl><div><dt>Visits</dt><dd>' . number_format($visits) . '</dd></div><div><dt>Join rate</dt><dd>' . ($visits ? $rate . '%' : '–') . '</dd></div><div><dt>Sent to Meta</dt><dd>' . number_format($sent) . '</dd></div></dl></div>'
+        . '<div class="hr"><div class="hh"><h2>Joins per day</h2>' . legend_html([['Telegram joins', 'var(--c-join)', false], ['Sent to Meta', 'var(--c-sent)', true]]) . '</div>'
+        . svg_line_chart($labels, [['values' => $vJ, 'color' => 'var(--c-join)'], ['values' => $vS, 'color' => 'var(--c-sent)', 'dashed' => true]], 'Line chart of Telegram joins and joins sent to Meta per day') . '</div></div>';
     echo '<div class="grid g5">'
-        . kpi_card('Visits', number_format($visits), 'Unique visitors', 'eye')
-        . kpi_card('Join-link clicks', number_format($clicks), $visits ? round($clicks / $visits * 100, 1) . '% of visits' : '', 'link')
-        . kpi_card('Telegram joins', number_format($joins), $visits ? round($joins / $visits * 100, 1) . '% of visits' : '', 'users')
-        . kpi_card('Sent to Meta', number_format($sent), ($joins - $sent) . ' not sent', 'send')
-        . kpi_card('Not sent', $gap . '%', $unmatched . ' joined without a JoinPath link', 'scale')
+        . kpi_card('Visits', number_format($visits), 'Unique visitors', 'eye', 'visit')
+        . kpi_card('Join-link clicks', number_format($clicks), $visits ? round($clicks / $visits * 100, 1) . '% of visits' : '', 'link', 'click')
+        . kpi_card('Sent to Meta', number_format($sent), ($joins - $sent) . ' not sent', 'send', 'sent')
+        . kpi_card('Not sent', $gap . '%', $unmatched . ' joined without a JoinPath link', 'scale', 'bad')
         . '</div>';
 
-    echo '<div class="split"><div class="a"><div class="card"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px"><h2 style="margin:0">Joins per day</h2>'
-        . legend_html([['Telegram joins', '#0B6B5C', false], ['Sent to Meta', '#B9440B', true]]) . '</div>'
-        . svg_line_chart($labels, [['values' => $vJ, 'color' => '#0B6B5C'], ['values' => $vS, 'color' => '#B9440B', 'dashed' => true]], 'Line chart of Telegram joins and joins sent to Meta per day') . '</div>';
+    echo '<div class="split"><div class="a">';
 
     $bar = function (string $label, int $val, float $pct, string $color): string {
         return '<div style="margin-bottom:18px"><div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:8px"><span style="font-weight:500">' . e($label)
@@ -275,10 +279,10 @@ function page_overview(): void
     };
     $base = max(1, $visits);
     echo '<div class="card"><h2>Visitor to join</h2>'
-        . $bar('Visited the page', $visits, 100, '#B9B4A4')
-        . $bar('Clicked the join button', $clicks, $clicks / $base * 100, '#8A9E98')
-        . $bar('Joined Telegram', $joins, $joins / $base * 100, '#0B6B5C')
-        . $bar('Sent to Meta', $sent, $sent / $base * 100, '#14171F') . '</div></div>';
+        . $bar('Visited the page', $visits, 100, 'var(--c-visit)')
+        . $bar('Clicked the join button', $clicks, $clicks / $base * 100, 'var(--c-click)')
+        . $bar('Joined Telegram', $joins, $joins / $base * 100, 'var(--c-join)')
+        . $bar('Sent to Meta', $sent, $sent / $base * 100, 'var(--c-sent)') . '</div></div>';
 
     echo '<div class="b"><div class="card"><h2>Latest joins</h2><div class="feed">';
     if (!$feed) {
@@ -617,13 +621,13 @@ function page_reconciliation(): void
     layout_start('Reconciliation', 'reconciliation', '<form method="get"><select name="days" aria-label="Range" style="width:auto" onchange="this.form.submit()">'
         . implode('', array_map(fn($k) => '<option value="' . $k . '"' . ($k === $days ? ' selected' : '') . '>Last ' . $k . ' days</option>', [7, 14, 30])) . '</select></form>');
     echo '<p class="muted" style="margin:-8px 0 0">Your joins against what was sent to Meta. Ads Manager numbers are added when you connect your ad account (coming next).</p>';
-    echo '<div class="grid g4">' . kpi_card('Telegram joins', number_format($tot['j']), 'Counted from your bot', 'users')
-        . kpi_card('Sent to Meta', number_format($tot['s']), ($tot['j'] - $tot['s']) . ' not sent', 'send')
-        . kpi_card('Joined without a link', number_format($tot['u']), 'Counted, never sent', 'link')
-        . kpi_card('Not sent', $gapPct . '%', $tot['f'] . ' still retrying or failed', 'scale') . '</div>';
+    echo '<div class="grid g4">' . kpi_card('Telegram joins', number_format($tot['j']), 'Counted from your bot', 'users', 'join')
+        . kpi_card('Sent to Meta', number_format($tot['s']), ($tot['j'] - $tot['s']) . ' not sent', 'send', 'sent')
+        . kpi_card('Joined without a link', number_format($tot['u']), 'Counted, never sent', 'link', 'click')
+        . kpi_card('Not sent', $gapPct . '%', $tot['f'] . ' still retrying or failed', 'scale', 'bad') . '</div>';
     echo '<div class="split"><div class="a"><div class="card"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px"><h2 style="margin:0">Daily comparison</h2>'
-        . legend_html([['Telegram joins', '#0B6B5C', false], ['Sent to Meta', '#B9440B', true]]) . '</div>'
-        . svg_line_chart($labels, [['values' => $vj, 'color' => '#0B6B5C'], ['values' => $vs, 'color' => '#B9440B', 'dashed' => true]], 'Daily Telegram joins versus joins sent to Meta', 760, 260) . '</div>'
+        . legend_html([['Telegram joins', 'var(--c-join)', false], ['Sent to Meta', 'var(--c-sent)', true]]) . '</div>'
+        . svg_line_chart($labels, [['values' => $vj, 'color' => 'var(--c-join)'], ['values' => $vs, 'color' => 'var(--c-sent)', 'dashed' => true]], 'Daily Telegram joins versus joins sent to Meta', 760, 260) . '</div>'
         . '<div class="card" style="padding-bottom:12px"><h2>Day by day</h2><div class="scroll"><table style="min-width:480px"><thead><tr><th>Day</th><th class="r">Telegram joins</th><th class="r">Sent to Meta</th><th class="r">Not sent</th><th class="r">Not sent (%)</th></tr></thead><tbody>'
         . $tableRows . '</tbody></table></div></div></div>'
         . '<div class="b"><div class="card"><h2>Why a join may not be sent</h2><p class="muted" style="margin:0 0 12px">A join is sent only when we know which ad visit it came from.</p>'
@@ -891,7 +895,7 @@ function lp_design_editor(array $c, string $template, string $customHtml): strin
         . '<div class="field"><label for="f_image_file">Picture or logo (optional)</label><input id="f_image_file" name="image_file" type="file" accept="image/jpeg,image/png,image/webp,image/gif">'
         . '<div class="help">JPG, PNG or WebP under 2 MB. Used as the picture, or as the round logo in "Channel profile".</div>';
     if ($c['image'] !== '') {
-        $h .= '<div style="margin-top:10px;display:flex;align-items:center;gap:12px"><img src="' . e($c['image']) . '" alt="" style="height:56px;border-radius:8px;border:1px solid #E4E0D6"> <label style="margin:0;font-weight:500"><input type="checkbox" name="remove_image" value="1"> Remove picture</label></div>';
+        $h .= '<div style="margin-top:10px;display:flex;align-items:center;gap:12px"><img src="' . e($c['image']) . '" alt="" style="height:56px;border-radius:8px;border:1px solid var(--line)"> <label style="margin:0;font-weight:500"><input type="checkbox" name="remove_image" value="1"> Remove picture</label></div>';
     }
     $h .= '<input type="hidden" name="image_current" value="' . e((string)$c['image']) . '"></div>'
         . $f('Small print at the bottom (optional)', 'footer', (string)$c['footer'], 'Good place for a disclaimer.')
