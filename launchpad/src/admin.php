@@ -257,7 +257,39 @@ function page_admin_reports(): void
         echo '</td></tr>';
     }
     echo '</tbody></table></div></div>';
+    $host = lp_setting('smtp_host');
+    echo '<div class="card"><h2 style="margin-top:0">Email settings</h2><p class="muted" style="margin:0 0 14px">Login details are emailed to clients from a mailbox you create in cPanel (Email Accounts). '
+        . ($host !== '' ? chip('ok', 'Mailbox connected') : chip('warn', 'Not set up: mail may land in spam or not send')) . '</p>'
+        . '<form method="post" action="/app/admin/mail">' . csrf_field() . '<div class="row2">'
+        . '<label>Mail server<input name="smtp_host" value="' . e($host) . '" placeholder="mail.dreamgrowthtrack.com"></label>'
+        . '<label>Port<input name="smtp_port" value="' . e(lp_setting('smtp_port') ?: '465') . '" inputmode="numeric"></label>'
+        . '<label>Mailbox email<input name="smtp_user" value="' . e(lp_setting('smtp_user')) . '" placeholder="hello@dreamgrowthtrack.com"></label>'
+        . '<label>Mailbox password<input name="smtp_pass" type="password" autocomplete="new-password" placeholder="' . (lp_setting('smtp_pass') !== '' ? 'Saved. Leave empty to keep it' : '') . '"></label>'
+        . '</div><div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button class="btn" type="submit" name="do" value="save">Save</button>'
+        . '<button class="btn ghost" type="submit" name="do" value="test">Save and send a test email to me</button></div></form></div>';
     layout_end();
+}
+
+function do_admin_mail(): void
+{
+    require_admin();
+    csrf_check();
+    $host = trim((string)($_POST['smtp_host'] ?? ''));
+    lp_setting_set('smtp_host', clip($host, 120));
+    lp_setting_set('smtp_port', (string)max(1, min(65535, (int)($_POST['smtp_port'] ?? 465))));
+    lp_setting_set('smtp_user', clip(trim((string)($_POST['smtp_user'] ?? '')), 120));
+    $pw = (string)($_POST['smtp_pass'] ?? '');
+    if ($pw !== '') {
+        lp_setting_set('smtp_pass', enc($pw));
+    }
+    if (($_POST['do'] ?? '') === 'test') {
+        $me = (current_user()["email"] ?? support_email());
+        $ok = lp_mail((string)$me, 'JoinPath test email', "This is a test email from JoinPath.\nIf you can read this, client emails will work.", support_email());
+        flash($ok ? 'ok' : 'bad', $ok ? 'Test email sent to ' . $me . '. Check the inbox and the Spam folder.' : 'Test email failed: ' . lp_mail_error());
+    } else {
+        flash('ok', 'Email settings saved.');
+    }
+    redirect('/app/admin/requests');
 }
 
 function valid_ymd(string $s): bool

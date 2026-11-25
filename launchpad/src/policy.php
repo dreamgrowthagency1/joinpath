@@ -17,20 +17,144 @@ function support_email(): string
     return (string)cfg('support_email', 'dreamgrowthagency1@gmail.com');
 }
 
-/** Best-effort email. The dashboard is always the source of truth. */
+function lp_setting(string $k): string
+{
+    try {
+        return (string)db_val('SELECT v FROM settings WHERE k=?', [$k]);
+    } catch (Throwable $e) {
+        return '';
+    }
+}
+
+function lp_setting_set(string $k, string $v): void
+{
+    if (db_val('SELECT COUNT(*) FROM settings WHERE k=?', [$k])) {
+        db_exec('UPDATE settings SET v=? WHERE k=?', [$v, $k]);
+    } else {
+        db_exec('INSERT INTO settings (k,v) VALUES (?,?)', [$k, $v]);
+    }
+}
+
+/** Last email error, for the admin test button. */
+function lp_mail_error(?string $set = null): string
+{
+    static $err = '';
+    if ($set !== null) {
+        $err = $set;
+    }
+    return $err;
+}
+
+/** Minimal SMTP client (implicit TLS on 465, or STARTTLS on 587). Returns '' on success, else the error. */
+function lp_smtp_send(string $host, int $port, string $user, string $pass, string $from, string $to, string $subject, string $body, string $replyTo): string
+{
+    $ctx = stream_context_create(['ssl' => ['verify_peer' => false, 'verify_peer_name' => false]]);
+    $fp = @stream_socket_client(($port === 465 ? 'ssl://' : 'tcp://') . $host . ':' . $port, $en, $es, 12, STREAM_CLIENT_CONNECT, $ctx);
+    if (!$fp) {
+        return 'Could not connect to ' . $host . ':' . $port . ' (' . $es . ')';
+    }
+    stream_set_timeout($fp, 12);
+    $read = function () use ($fp): array {
+        $code = 0;
+        $txt = '';
+        while (($l = fgets($fp, 515)) !== false) {
+            $txt .= $l;
+            $code = (int)substr($l, 0, 3);
+            if (strlen($l) < 4 || $l[3] === ' ') {
+                break;
+            }
+        }
+        return [$code, trim($txt)];
+    };
+    $last = '';
+    $cmd = function (string $c, array $ok) use ($fp, $read, &$last): string {
+        fwrite($fp, $c . "\r\n");
+        [$code, $txt] = $read();
+        $last = $txt;
+        return in_array($code, $ok, true) ? '' : ($txt !== '' ? $txt : 'No reply from mail server');
+    };
+    [$code, $txt] = $read();
+    if ($code !== 220) {
+        fclose($fp);
+        return 'Mail server said: ' . $txt;
+    }
+    $steps = [];
+    $e = $cmd('EHLO joinpath', [250]);
+    if ($e === '' && $port !== 465 && stripos($last, 'STARTTLS') !== false) {
+        $e = $cmd('STARTTLS', [220]);
+        if ($e === '' && !@stream_socket_enable_crypto($fp, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+            $e = 'TLS handshake failed';
+        }
+        if ($e === '') {
+            $e = $cmd('EHLO joinpath', [250]);
+        }
+    }
+    if ($e === '' && $user !== '') {
+        $e = $cmd('AUTH LOGIN', [334]);
+        if ($e === '') {
+            $e = $cmd(base64_encode($user), [334]);
+        }
+        if ($e === '') {
+            $e = $cmd(base64_encode($pass), [235]);
+            if ($e !== '') {
+                $e = 'Login failed: ' . $e;
+            }
+        }
+    }
+    if ($e === '') {
+        $e = $cmd('MAIL FROM:<' . $from . '>', [250]);
+    }
+    if ($e === '') {
+        $e = $cmd('RCPT TO:<' . $to . '>', [250, 251]);
+    }
+    if ($e === '') {
+        $e = $cmd('DATA', [354]);
+    }
+    if ($e === '') {
+        $hdr = 'From: JoinPath <' . $from . ">\r\nTo: <" . $to . ">\r\nSubject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\nDate: " . date('r')
+            . "\r\nMessage-ID: <" . bin2hex(random_bytes(8)) . '@' . substr(strrchr($from, '@'), 1) . ">\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: base64";
+        if ($replyTo !== '') {
+            $hdr .= "\r\nReply-To: " . $replyTo;
+        }
+        $e = $cmd($hdr . "\r\n\r\n" . chunk_split(base64_encode($body)) . "\r\n.", [250]);
+    }
+    @fwrite($fp, "QUIT\r\n");
+    fclose($fp);
+    return $e;
+}
+
+/** Best-effort email. Uses the SMTP settings from Admin > Requests when saved, else PHP mail(). */
 function lp_mail(string $to, string $subject, string $body, string $replyTo = ''): bool
 {
-    $host = preg_replace('/^www\./', '', (string)parse_url((string)cfg('app_url', 'https://localhost'), PHP_URL_HOST));
-    $headers = 'From: JoinPath <noreply@' . ($host ?: 'localhost') . ">\r\nContent-Type: text/plain; charset=utf-8\r\nX-Mailer: JoinPath";
-    if ($replyTo !== '' && filter_var($replyTo, FILTER_VALIDATE_EMAIL)) {
+    $subject = str_replace(["\r", "\n"], ' ', $subject);
+    $replyTo = filter_var($replyTo, FILTER_VALIDATE_EMAIL) ? $replyTo : '';
+    lp_mail_error('');
+    $host = lp_setting('smtp_host');
+    if ($host !== '') {
+        $user = lp_setting('smtp_user');
+        $from = filter_var($user, FILTER_VALIDATE_EMAIL) ? $user : support_email();
+        try {
+            $err = lp_smtp_send($host, (int)(lp_setting('smtp_port') ?: 465), $user, dec(lp_setting('smtp_pass')), $from, $to, $subject, $body, $replyTo);
+        } catch (Throwable $t) {
+            $err = 'Email error: ' . $t->getMessage();
+        }
+        lp_mail_error($err);
+        return $err === '';
+    }
+    $domain = preg_replace('/^www\./', '', (string)parse_url((string)cfg('app_url', 'https://localhost'), PHP_URL_HOST));
+    $headers = 'From: JoinPath <noreply@' . ($domain ?: 'localhost') . ">\r\nContent-Type: text/plain; charset=utf-8\r\nX-Mailer: JoinPath";
+    if ($replyTo !== '') {
         $headers .= "\r\nReply-To: " . $replyTo;
     }
-    $subject = str_replace(["\r", "\n"], ' ', $subject);
     try {
-        return (bool)@mail($to, '=?UTF-8?B?' . base64_encode($subject) . '?=', $body, $headers);
+        $ok = (bool)@mail($to, '=?UTF-8?B?' . base64_encode($subject) . '?=', $body, $headers);
     } catch (Throwable $e) {
-        return false;
+        $ok = false;
     }
+    if (!$ok) {
+        lp_mail_error('The server refused to send. Add a mailbox under Email settings.');
+    }
+    return $ok;
 }
 
 /** Words that tend to break Meta ad rules or Indian advertising and securities rules. Advisory only. */

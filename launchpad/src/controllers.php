@@ -99,6 +99,7 @@ function app_main(): void
         ['GET', '#^/app/admin/reports$#', 'page_admin_reports'],
         ['GET', '#^/app/admin/requests$#', 'page_admin_requests'],
         ['POST', '#^/app/admin/request$#', 'do_admin_request'],
+        ['POST', '#^/app/admin/mail$#', 'do_admin_mail'],
         ['POST', '#^/app/admin/create$#', 'do_admin_create'],
         ['POST', '#^/app/admin/reset$#', 'do_admin_reset'],
         ['POST', '#^/app/admin/account$#', 'do_admin_account'],
